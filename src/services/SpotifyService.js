@@ -128,17 +128,18 @@ class SpotifyService {
           params: {
             q: `track:${track.title} artist:${track.artist}`,
             type: "track",
-            limit: perTrackLimit,
+            limit: perTrackLimit + 1,
           },
         });
 
         const trackResults = response.data.tracks.items;
-        trackResults.forEach((track) => {
+        trackResults.forEach((recommendedTrack) => {
           if (
-            !recommendations.has(track.id) &&
-            recommendations.size < totalRecommendations
+            !recommendations.has(recommendedTrack.id) &&
+            recommendations.size < totalRecommendations &&
+            recommendedTrack.id !== track.trackId
           ) {
-            recommendations.add(track.id);
+            recommendations.add(recommendedTrack.id);
           }
         });
 
