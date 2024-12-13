@@ -108,23 +108,48 @@ class SpotifyService {
     }
   }
 
-  async getRecommendations(trackIds) {
+  async getRecommendations(trackMetadatas) {
     try {
-      const response = await axios.get(`${this._baseUrl}/recommendations`, {
-        headers: {
-          Authorization: `Bearer ${this.token}`,
-        },
-        params: {
-          seed_tracks: trackIds.join(","),
-          limit: 15,
-        },
-      });
-      const recommendations = response.data.tracks.map((track) => track.id);
-      return recommendations;
+      const totalRecommendations = 15;
+      const perTrackLimit = Math.ceil(
+        totalRecommendations / trackMetadatas.length,
+      );
+
+      const recommendations = new Set();
+
+      for (const track of trackMetadatas) {
+        // Spotify has deprecated the recommendation endpoint
+        // Workaround: use the search endpoint for per-song recommendations
+        // for each track.
+        const response = await axios.get(`${this._baseUrl}/search`, {
+          headers: {
+            Authorization: `Bearer ${this.token}`,
+          },
+          params: {
+            q: `track:${track.title} artist:${track.artist}`,
+            type: "track",
+            limit: perTrackLimit,
+          },
+        });
+
+        const trackResults = response.data.tracks.items;
+        trackResults.forEach((track) => {
+          if (
+            !recommendations.has(track.id) &&
+            recommendations.size < totalRecommendations
+          ) {
+            recommendations.add(track.id);
+          }
+        });
+
+        if (recommendations.size >= totalRecommendations) break;
+      }
+
+      return Array.from(recommendations);
     } catch (error) {
       if (error.response?.status === 401) {
         await this._authenticate();
-        return this.getRecommendations(trackIds);
+        return this.getRecommendations(trackMetadatas);
       }
       throw new Error("Failed to get recommendations:", error);
     }
@@ -209,13 +234,8 @@ class SpotifyService {
     // Get recommendations based on last five played
     const lastFiveSongs =
       await HistoryModelService.fetchMostRecentlyPlayedTracks(1, 5);
-    const lastFiveTrackIds = lastFiveSongs.map((track) => track.trackId);
 
-    if (lastFiveTrackIds.length === 0) {
-      throw new Error("No songs played yet. Cannot suggest songs.");
-    }
-
-    let suggestions = await this.getRecommendations(lastFiveTrackIds);
+    let suggestions = await this.getRecommendations(lastFiveSongs);
 
     // Do not suggest songs that have been played in the last two hours
     const tooRecentlyPlayed =
