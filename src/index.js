@@ -33,6 +33,10 @@ fs.readdir(audioDir, (err, files) => {
   }
 });
 
+if (process.env.APPLE_COOKIES) {
+  fs.writeFileSync("./cookies.txt", process.env.APPLE_COOKIES);
+}
+
 const corsOptions = {
   origin: process.env.CLIENT_URL || "*",
   optionsSuccessStatus: 200,
