@@ -211,12 +211,23 @@ class SongController {
   }
 
   async _gatherSongFiles(trackMetadata) {
-    if (!trackMetadata.urlForPlatform.youtube) {
-      throw new Error("No youtube url for track. Skipping song.");
+    let downloadSource;
+    if (process.env.DOWNLOAD_SOURCE === "appleMusic") {
+      if (!trackMetadata.urlForPlatform.appleMusic) {
+        throw new Error(
+          "No Apple Music url for track. Skipping song.",
+        );
+      }
+      downloadSource = trackMetadata.urlForPlatform.appleMusic;
+    } else {
+      if (!trackMetadata.urlForPlatform.youtube) {
+        throw new Error("No youtube url for track. Skipping song.");
+      }
+      downloadSource = trackMetadata.urlForPlatform.youtube;
     }
 
     const audioFilePath = await this._downloadTrack(
-      trackMetadata.urlForPlatform.youtube,
+      downloadSource,
     );
 
     let announcementAudioPath;
@@ -243,8 +254,16 @@ class SongController {
 
   async _downloadTrack(url) {
     const fileName = new Date().getTime();
-    const filePath = `./audio/${fileName}.mp3`;
-    const command = `yt-dlp -x -f 'bestaudio' --output ${filePath} ${url} --audio-format mp3`;
+    const filePath = `./audio/${fileName}.m4a`;
+    const command = `gamdl "${url}" \
+                  --no-synced-lyrics \
+                  --output-path="./audio" \
+                  --template-folder-album="" \
+                  --template-folder-compilation="" \
+                  --template-folder-no-album="" \
+                  --template-file-single-disc="${fileName}" \
+                  --template-file-multi-disc="${fileName}" \
+                  --template-file-no-album="${fileName}"`;
     const execAsync = promisify(exec);
 
     for (let failCount = 1; failCount <= 10; failCount++) {

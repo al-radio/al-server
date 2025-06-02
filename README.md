@@ -67,6 +67,10 @@ OPENAI_API_KEY=
 LASTFM_API_KEY=
 LASTFM_API_SECRET=
 
+# Choose where the music is downloaded from. appleMusic requires
+# a cookies.txt file in the root. see gamdl on github.
+DOWNLOAD_SOURCE=appleMusic/youtube
+
 # Required for YouTube IP blocking circumventing
 PROXY_LIST_URL= # returns \r\n-separated proxies
 

@@ -3,6 +3,7 @@ import QueueService from "./QueueService.js";
 import TrackModelService from "./db/TrackModelService.js";
 import HistoryModelService from "./db/HistoryModelService.js";
 import { log } from "../utils/logger.js";
+import LastFMService from "./LastFMService.js";
 
 class SpotifyService {
   constructor() {
@@ -75,7 +76,7 @@ class SpotifyService {
     }
   }
 
-  async searchTrack(query) {
+  async searchTrack(query, limit=5) {
     try {
       log("info", `Searching for track: ${query}`, this.constructor.name);
       const response = await axios.get(`${this._baseUrl}/search`, {
@@ -85,7 +86,7 @@ class SpotifyService {
         params: {
           q: query,
           type: "track",
-          limit: 5,
+          limit: limit,
         },
       });
 
@@ -236,7 +237,24 @@ class SpotifyService {
     const lastFiveSongs =
       await HistoryModelService.fetchMostRecentlyPlayedTracks(1, 5);
 
-    let suggestions = await this.getRecommendations(lastFiveSongs);
+    let suggestions = await LastFMService.getRecommendations(
+      lastFiveSongs.map((song) => ({
+        title: song.title,
+        artist: song.artist,
+      })),
+    );
+
+    // from these lastfm recommendations, we need to get the spotify trackid
+    // suggestions is formatted as [{artist:...,title:...}]
+    suggestions = await Promise.all(
+      suggestions.map(async (track) => {
+        const spotifyTrack = await this.searchTrack(
+          `${track.title} ${track.artist}`,
+          1,
+        );
+        return spotifyTrack?.[0]?.trackId;
+      }),
+    );
 
     // Do not suggest songs that have been played in the last two hours
     const tooRecentlyPlayed =
@@ -245,6 +263,7 @@ class SpotifyService {
     suggestions = suggestions.filter(
       (track) => !tooRecentlyTrackIds.includes(track),
     );
+
 
     // Limit to 5 suggestions
     suggestions = suggestions.slice(0, numberOfSuggestions);
